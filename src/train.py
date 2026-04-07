@@ -27,7 +27,11 @@ Features:
 # IMPORT LIBRARIES
 # ============================================
 
+import sys
 import os
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import pandas as pd
 import numpy as np
 import pickle
@@ -38,52 +42,69 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.pipeline import Pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import (
-    accuracy_score,
-    classification_report,
-    confusion_matrix
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+
+from src.config import (
+    DATA_PATH,
+    MODEL_PATH,
+    TFIDF_PATH,
+    ENCODER_PATH,
+    PROCESSED_DATA_PATH,
+    LOG_PATH
 )
 
 # ============================================
-# LOGGING CONFIG
+# CREATE MODEL DIRECTORY BEFORE LOGGING
+# ============================================
+
+MODEL_DIR = os.path.dirname(MODEL_PATH)
+
+if not os.path.exists(MODEL_DIR):
+    os.makedirs(MODEL_DIR)
+
+# ============================================
+# LOGGING
 # ============================================
 
 logging.basicConfig(
+    filename=LOG_PATH,
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
 # ============================================
-# PATHS
+# CREATE MODEL DIRECTORY BEFORE LOGGING
 # ============================================
 
-DATASET_PATH = "dataset/mental_health.csv"
-MODEL_DIR = "model"
+MODEL_DIR = os.path.dirname(MODEL_PATH)
 
-MODEL_PATH = os.path.join(
-    MODEL_DIR,
-    "mental_health_model.pkl"
-)
-
-ENCODER_PATH = os.path.join(
-    MODEL_DIR,
-    "label_encoder.pkl"
-)
-
-HISTORY_PATH = os.path.join(
-    MODEL_DIR,
-    "history.csv"
-)
+if not os.path.exists(MODEL_DIR):
+    os.makedirs(MODEL_DIR)
 
 # ============================================
-# CREATE FOLDERS
+# LOGGING
 # ============================================
+
+logging.basicConfig(
+    filename=LOG_PATH,
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+# ============================================
+# CREATE MODEL DIRECTORY
+# ============================================
+
+MODEL_DIR = os.path.dirname(MODEL_PATH)
+HISTORY_PATH = os.path.join(MODEL_DIR, "history.csv")
+
 
 def create_directories():
 
     if not os.path.exists(MODEL_DIR):
         os.makedirs(MODEL_DIR)
+        print("Model directory created")
         logging.info("Model directory created")
+
 
 # ============================================
 # LOAD DATA
@@ -91,16 +112,16 @@ def create_directories():
 
 def load_dataset():
 
-    if not os.path.exists(DATASET_PATH):
-        raise FileNotFoundError(
-            "Dataset not found in dataset/mental_health.csv"
-        )
+    if not os.path.exists(DATA_PATH):
+        raise FileNotFoundError("Dataset not found")
 
-    df = pd.read_csv(DATASET_PATH)
+    df = pd.read_csv(DATA_PATH)
 
-    logging.info(f"Dataset loaded: {df.shape}")
+    print("Dataset loaded:", df.shape)
+    logging.info(f"Dataset loaded {df.shape}")
 
     return df
+
 
 # ============================================
 # VALIDATE DATA
@@ -108,21 +129,30 @@ def load_dataset():
 
 def validate_data(df):
 
-    required_columns = ["text", "label"]
+    df.columns = df.columns.str.lower().str.strip()
 
-    for col in required_columns:
-        if col not in df.columns:
-            raise ValueError(
-                f"{col} column missing in dataset"
-            )
+    print("Columns:", df.columns)
+
+    if "clean_text" not in df.columns:
+        raise ValueError("clean_text column missing")
+
+    if "is_depression" not in df.columns:
+        raise ValueError("is_depression column missing")
 
     df = df.dropna()
 
+    df = df.rename(columns={
+        "clean_text": "text",
+        "is_depression": "label"
+    })
+
     df["text"] = df["text"].astype(str)
 
+    print("Data validation complete")
     logging.info("Data validation complete")
 
     return df
+
 
 # ============================================
 # LABEL ENCODING
@@ -132,18 +162,16 @@ def encode_labels(df):
 
     encoder = LabelEncoder()
 
-    df["label_encoded"] = encoder.fit_transform(
-        df["label"]
-    )
+    df["label_encoded"] = encoder.fit_transform(df["label"])
 
-    logging.info(
-        f"Labels: {list(encoder.classes_)}"
-    )
+    print("Labels:", list(encoder.classes_))
+    logging.info(f"Labels {list(encoder.classes_)}")
 
     return df, encoder
 
+
 # ============================================
-# TRAIN TEST SPLIT
+# SPLIT DATA
 # ============================================
 
 def split_data(df):
@@ -159,9 +187,11 @@ def split_data(df):
         stratify=y
     )
 
+    print("Data split complete")
     logging.info("Data split complete")
 
     return X_train, X_test, y_train, y_test
+
 
 # ============================================
 # BUILD PIPELINE
@@ -182,15 +212,15 @@ def build_pipeline():
 
         (
             "model",
-            LogisticRegression(
-                max_iter=1000
-            )
+            LogisticRegression(max_iter=1000)
         )
     ])
 
+    print("Pipeline created")
     logging.info("Pipeline created")
 
     return pipeline
+
 
 # ============================================
 # TRAIN MODEL
@@ -200,45 +230,32 @@ def train_model(pipeline, X_train, y_train):
 
     pipeline.fit(X_train, y_train)
 
+    print("Model training complete")
     logging.info("Model training complete")
 
     return pipeline
 
+
 # ============================================
-# EVALUATION
+# EVALUATE MODEL
 # ============================================
 
 def evaluate_model(model, X_test, y_test, encoder):
 
     predictions = model.predict(X_test)
 
-    accuracy = accuracy_score(
-        y_test,
-        predictions
-    )
-
-    logging.info(f"Accuracy: {accuracy}")
+    accuracy = accuracy_score(y_test, predictions)
 
     print("\nAccuracy:", accuracy)
 
     print("\nClassification Report:\n")
-
-    print(
-        classification_report(
-            y_test,
-            predictions,
-            target_names=encoder.classes_
-        )
-    )
+    print(classification_report(y_test, predictions))
 
     print("\nConfusion Matrix:\n")
+    print(confusion_matrix(y_test, predictions))
 
-    print(
-        confusion_matrix(
-            y_test,
-            predictions
-        )
-    )
+    logging.info(f"Accuracy {accuracy}")
+
 
 # ============================================
 # SAVE MODEL
@@ -246,27 +263,37 @@ def evaluate_model(model, X_test, y_test, encoder):
 
 def save_model(model, encoder):
 
-    pickle.dump(
-        model,
-        open(MODEL_PATH, "wb")
-    )
+    tfidf = model.named_steps["tfidf"]
 
-    pickle.dump(
-        encoder,
-        open(ENCODER_PATH, "wb")
-    )
+    pickle.dump(model, open(MODEL_PATH, "wb"))
+    pickle.dump(tfidf, open(TFIDF_PATH, "wb"))
+    pickle.dump(encoder, open(ENCODER_PATH, "wb"))
 
+    print("Model saved")
     logging.info("Model saved")
+
+
+# ============================================
+# SAVE PROCESSED DATA
+# ============================================
+
+def save_processed_data(df):
+
+    df.to_csv(PROCESSED_DATA_PATH, index=False)
+
+    print("Processed data saved")
+    logging.info("Processed data saved")
+
 
 # ============================================
 # CREATE HISTORY FILE
 # ============================================
 
-def create_history_file():
+def create_history():
 
     if not os.path.exists(HISTORY_PATH):
 
-        df = pd.DataFrame(columns=[
+        history = pd.DataFrame(columns=[
 
             "text",
             "prediction",
@@ -276,16 +303,19 @@ def create_history_file():
             "time"
         ])
 
-        df.to_csv(HISTORY_PATH, index=False)
+        history.to_csv(HISTORY_PATH, index=False)
 
+        print("History file created")
         logging.info("History file created")
 
+
 # ============================================
-# MAIN FUNCTION
+# MAIN
 # ============================================
 
 def main():
 
+    print("Training started")
     logging.info("Training started")
 
     create_directories()
@@ -300,27 +330,19 @@ def main():
 
     pipeline = build_pipeline()
 
-    model = train_model(
-        pipeline,
-        X_train,
-        y_train
-    )
+    model = train_model(pipeline, X_train, y_train)
 
-    evaluate_model(
-        model,
-        X_test,
-        y_test,
-        encoder
-    )
+    evaluate_model(model, X_test, y_test, encoder)
 
-    save_model(
-        model,
-        encoder
-    )
+    save_model(model, encoder)
 
-    create_history_file()
+    save_processed_data(df)
 
-    logging.info("Training completed successfully")
+    create_history()
+
+    print("Training completed successfully")
+    logging.info("Training completed")
+
 
 # ============================================
 # RUN
