@@ -23,6 +23,10 @@ Features:
 # IMPORT LIBRARIES
 # ============================================
 
+# ============================================
+# IMPORTS
+# ============================================
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -30,14 +34,21 @@ import pickle
 import os
 from datetime import datetime
 
-from utils import (
+from src.utils import (
     suggest_help,
     map_emotion,
     calculate_risk,
     detect_emergency,
     get_helpline,
-    interpret_confidence,
-    format_response
+    interpret_confidence
+)
+
+from src.config import (
+    MODEL_PATH,
+    TFIDF_PATH,
+    ENCODER_PATH,
+    APP_TITLE,
+    APP_DESCRIPTION
 )
 
 # ============================================
@@ -45,18 +56,16 @@ from utils import (
 # ============================================
 
 st.set_page_config(
-    page_title="AI Mental Health Support Analyzer",
+    page_title=APP_TITLE,
     page_icon="🧠",
     layout="wide"
 )
 
 # ============================================
-# PATHS
+# HISTORY PATH
 # ============================================
 
-MODEL_PATH = "model/mental_health_model.pkl"
-ENCODER_PATH = "model/label_encoder.pkl"
-HISTORY_PATH = "model/history.csv"
+HISTORY_PATH = "models/history.csv"
 
 # ============================================
 # LOAD MODEL
@@ -64,15 +73,20 @@ HISTORY_PATH = "model/history.csv"
 
 @st.cache_resource
 def load_resources():
+
     try:
         model = pickle.load(open(MODEL_PATH, "rb"))
+        tfidf = pickle.load(open(TFIDF_PATH, "rb"))
         encoder = pickle.load(open(ENCODER_PATH, "rb"))
-        return model, encoder
+
+        return model, tfidf, encoder
+
     except Exception as e:
-        st.error("❌ Model or Encoder not found. Please run train.py first.")
+        st.error("❌ Model files not found. Please run training first.")
         st.stop()
 
-model, encoder = load_resources()
+
+model, tfidf, encoder = load_resources()
 
 # ============================================
 # SIDEBAR
@@ -84,48 +98,22 @@ st.sidebar.markdown("---")
 
 st.sidebar.subheader("About")
 
-st.sidebar.info(
-    """
-AI-powered NLP system that detects mental health condition
-from user text and provides support suggestions.
-"""
-)
-
-st.sidebar.markdown("---")
-
-st.sidebar.subheader("Labels")
-
-st.sidebar.write(
-    """
-🟢 Normal  
-🟡 Anxiety  
-🟠 Stress  
-🔴 Depression
-"""
-)
+st.sidebar.info(APP_DESCRIPTION)
 
 st.sidebar.markdown("---")
 
 st.sidebar.subheader("Disclaimer")
 
 st.sidebar.warning(
-    """
-This tool is for educational purposes only.
-
-It does not replace medical or psychological diagnosis.
-"""
+    "This tool is for educational purposes only and not medical advice."
 )
 
 # ============================================
 # MAIN TITLE
 # ============================================
 
-st.title("🧠 AI Mental Health Support Analyzer")
-
-st.markdown(
-    "### Understand emotional well-being using AI and NLP"
-)
-
+st.title(APP_TITLE)
+st.markdown("### Understand emotional well-being using AI & NLP")
 st.markdown("---")
 
 # ============================================
@@ -133,11 +121,11 @@ st.markdown("---")
 # ============================================
 
 tab1, tab2, tab3 = st.tabs(
-    ["📝 Analyze Mental Health", "📊 Dashboard", "📘 About Project"]
+    ["📝 Analyze", "📊 Dashboard", "📘 About"]
 )
 
 # ============================================
-# TAB 1 - ANALYSIS
+# TAB 1
 # ============================================
 
 with tab1:
@@ -147,7 +135,7 @@ with tab1:
     user_input = st.text_area(
         "How are you feeling today?",
         height=150,
-        placeholder="Example: I feel stressed and anxious about my work and future"
+        placeholder="Example: I feel stressed and anxious about my work"
     )
 
     col1, col2 = st.columns(2)
@@ -161,36 +149,39 @@ with tab1:
     if analyze:
 
         if user_input.strip() == "":
-            st.warning("⚠ Please enter your thoughts")
+            st.warning("Please enter text")
+
         else:
 
             try:
 
-                # =====================================
-                # MODEL PREDICTION
-                # =====================================
+                # ====================================
+                # TEXT TRANSFORM
+                # ====================================
 
-                prediction_encoded = model.predict([user_input])[0]
+                text_vector = tfidf.transform([user_input])
+
+                prediction_encoded = model.predict(text_vector)[0]
 
                 label = encoder.inverse_transform(
                     [prediction_encoded]
                 )[0]
 
-                # =====================================
+                # ====================================
                 # CONFIDENCE
-                # =====================================
+                # ====================================
 
                 try:
-                    probabilities = model.predict_proba([user_input])
-                    confidence = float(np.max(probabilities) * 100)
+                    prob = model.predict_proba(text_vector)
+                    confidence = float(np.max(prob) * 100)
                 except:
                     confidence = 80.0
 
                 confidence_text = interpret_confidence(confidence)
 
-                # =====================================
-                # EMOTION MAPPING
-                # =====================================
+                # ====================================
+                # EMOTION
+                # ====================================
 
                 emotion = map_emotion(label)
 
@@ -202,14 +193,14 @@ with tab1:
 
                 emergency = detect_emergency(user_input)
 
-                # =====================================
-                # RESULT SECTION
-                # =====================================
+                # ====================================
+                # RESULT
+                # ====================================
 
                 st.markdown("---")
-                st.subheader("🧾 Prediction Result")
+                st.subheader("Prediction Result")
 
-                if label.lower() == "depressed":
+                if label.lower() == "depression":
                     st.error("🔴 Depression Detected")
 
                 elif label.lower() == "stress":
@@ -221,62 +212,58 @@ with tab1:
                 else:
                     st.success("🟢 Normal Emotional State")
 
-                # =====================================
+                # ====================================
                 # METRICS
-                # =====================================
+                # ====================================
 
                 col1, col2, col3, col4 = st.columns(4)
 
                 col1.metric("Emotion", emotion["emotion"])
-
                 col2.metric("Risk Level", risk)
-
                 col3.metric("Severity", severity)
-
                 col4.metric("Confidence", f"{confidence:.2f}%")
 
-                st.write("Confidence Interpretation:", confidence_text)
+                st.write("Confidence:", confidence_text)
 
                 st.markdown("---")
 
-                # =====================================
-                # EMERGENCY ALERT
-                # =====================================
+                # ====================================
+                # EMERGENCY
+                # ====================================
 
                 if emergency:
-
                     st.error(
-                        "🚨 Emergency Detected. Please seek immediate help."
+                        "🚨 Emergency detected. Seek immediate help."
                     )
 
-                # =====================================
+                # ====================================
                 # SUGGESTIONS
-                # =====================================
+                # ====================================
 
-                st.subheader("💡 Suggested Support")
+                st.subheader("Suggested Support")
 
                 for s in suggestions:
                     st.write("✔", s)
 
                 st.markdown("---")
 
-                # =====================================
-                # HELPLINE
-                # =====================================
+                # ====================================
+                # HELPLINES
+                # ====================================
 
-                st.subheader("📞 Helpline Support")
+                st.subheader("Helpline Support")
 
                 for h in helpline["helplines"]:
 
                     st.info(
-                        f"{h['name']} : {h['number']} ({h['availability']})"
+                        f"{h['name']} : {h['number']}"
                     )
 
-                # =====================================
+                # ====================================
                 # SAVE HISTORY
-                # =====================================
+                # ====================================
 
-                new_record = pd.DataFrame({
+                new_data = pd.DataFrame({
 
                     "text": [user_input],
                     "prediction": [label],
@@ -289,30 +276,27 @@ with tab1:
                 if os.path.exists(HISTORY_PATH):
 
                     old = pd.read_csv(HISTORY_PATH)
-
-                    updated = pd.concat(
-                        [old, new_record],
-                        ignore_index=True
-                    )
+                    updated = pd.concat([old, new_data])
 
                 else:
-                    updated = new_record
+                    updated = new_data
 
                 updated.to_csv(HISTORY_PATH, index=False)
 
-                st.success("✅ Result saved to dashboard")
+                st.success("Saved to dashboard")
 
             except Exception as e:
-                st.error("❌ Prediction failed")
+
+                st.error("Prediction failed")
                 st.write(e)
 
 # ============================================
-# TAB 2 - DASHBOARD
+# TAB 2
 # ============================================
 
 with tab2:
 
-    st.subheader("📊 Prediction Dashboard")
+    st.subheader("Prediction Dashboard")
 
     if os.path.exists(HISTORY_PATH):
 
@@ -324,94 +308,73 @@ with tab2:
 
         st.markdown("---")
 
-        st.subheader("📈 Label Distribution")
+        st.subheader("Label Distribution")
 
-        label_counts = history["prediction"].value_counts()
-
-        st.bar_chart(label_counts)
+        st.bar_chart(
+            history["prediction"].value_counts()
+        )
 
         st.markdown("---")
 
-        st.subheader("📉 Confidence Trend")
+        st.subheader("Confidence Trend")
 
         st.line_chart(history["confidence"])
-
-        st.markdown("---")
 
         csv = history.to_csv(index=False).encode()
 
         st.download_button(
-            "⬇ Download Report",
+            "Download Report",
             csv,
             "mental_health_report.csv",
             "text/csv"
         )
 
     else:
-        st.info("No history available yet")
+
+        st.info("No history yet")
 
 # ============================================
-# TAB 3 - ABOUT
+# TAB 3
 # ============================================
 
 with tab3:
 
-    st.subheader("📘 Project Overview")
+    st.subheader("Project Overview")
 
     st.write(
         """
-This project is an AI-based mental health support system
-built using NLP and Machine Learning.
+AI Mental Health Support Analyzer predicts emotional state
+from user text using NLP and Machine Learning.
 
-It predicts emotional state and provides support suggestions.
+Workflow:
+
+Dataset → TF-IDF → ML Model → Streamlit App
 """
     )
 
-    st.markdown("---")
+    st.subheader("Technologies")
 
-    st.subheader("⚙ Workflow")
+    st.table(pd.DataFrame({
 
-    st.write(
-        """
-Dataset → Cleaning → TF-IDF → ML Model → Prediction → Streamlit UI
-"""
-    )
-
-    st.markdown("---")
-
-    st.subheader("🧰 Technologies")
-
-    tech = pd.DataFrame({
-
-        "Technology": [
+        "Tech": [
             "Python",
             "Streamlit",
-            "Scikit-learn",
             "Machine Learning",
+            "Scikit-learn",
             "TF-IDF",
-            "NLP",
             "Pandas"
         ]
-    })
+    }))
 
-    st.table(tech)
-
-    st.markdown("---")
-
-    st.subheader("🚀 Future Enhancements")
+    st.subheader("Future Enhancements")
 
     st.write(
         """
-Voice Input
-
-Chatbot
-
-Mobile App
-
+Voice Input  
+Chatbot  
+Mobile App  
+Multi-language Support  
 Real-time Counseling
-
 Emotion Graph
-
-Multi-language Support
 """
     )
