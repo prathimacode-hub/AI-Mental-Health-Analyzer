@@ -1,0 +1,34 @@
+2026-04-07 11:37:52,618 - INFO - Training started
+2026-04-07 11:37:52,658 - INFO - Dataset loaded (7731, 2)
+2026-04-07 11:37:52,660 - INFO - Data validation complete
+2026-04-07 11:37:52,661 - INFO - Labels [0, 1]
+2026-04-07 11:37:52,666 - INFO - Data split complete
+2026-04-07 11:37:52,666 - INFO - Pipeline created
+2026-04-07 11:37:53,566 - INFO - Model training complete
+2026-04-07 11:37:53,692 - INFO - Accuracy 0.9599224305106658
+2026-04-07 11:37:53,788 - INFO - Model saved
+2026-04-07 11:37:53,863 - INFO - Processed data saved
+2026-04-07 11:37:53,866 - INFO - History file created
+2026-04-07 11:37:53,866 - INFO - Training completed
+2026-04-07 11:45:13,018 - INFO - Training started
+2026-04-07 11:45:13,057 - INFO - Dataset loaded (7731, 2)
+2026-04-07 11:45:13,062 - INFO - Data validation complete
+2026-04-07 11:45:13,063 - INFO - Labels [0, 1]
+2026-04-07 11:45:13,067 - INFO - Data split complete
+2026-04-07 11:45:13,068 - INFO - Pipeline created
+2026-04-07 11:45:13,943 - INFO - Model training complete
+2026-04-07 11:45:14,074 - INFO - Accuracy 0.9599224305106658
+2026-04-07 11:45:14,166 - INFO - Model saved
+2026-04-07 11:45:14,242 - INFO - Processed data saved
+2026-04-07 11:45:14,243 - INFO - Training completed
+2026-04-07 11:50:24,524 - INFO - Training started
+2026-04-07 11:50:24,566 - INFO - Dataset loaded (7731, 2)
+2026-04-07 11:50:24,569 - INFO - Data validation complete
+2026-04-07 11:50:24,570 - INFO - Labels [0, 1]
+2026-04-07 11:50:24,575 - INFO - Data split complete
+2026-04-07 11:50:24,575 - INFO - Pipeline created
+2026-04-07 11:50:25,534 - INFO - Model training complete
+2026-04-07 11:50:25,684 - INFO - Accuracy 0.9599224305106658
+2026-04-07 11:50:25,801 - INFO - Model saved
+2026-04-07 11:50:25,892 - INFO - Processed data saved
+2026-04-07 11:50:25,892 - INFO - Training completed
